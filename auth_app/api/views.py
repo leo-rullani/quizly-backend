@@ -1,129 +1,90 @@
+"""API views for user registration, login, logout and token refresh."""
+
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from .serializers import RegistrationSerializer, CustomObjectSerializer
+from auth_app.utils.auth_cookies import (
+    blacklist_refresh_cookie,
+    clear_auth_cookies,
+    set_auth_cookies,
+)
+from .serializers import RegistrationSerializer, CustomTokenObtainPairSerializer
+
+LOGOUT_MESSAGE = (
+    "Log-Out successfully! All Tokens will be deleted. "
+    "Refresh token is now invalid."
+)
 
 
 class RegistrationView(APIView):
-    """
-    API endpoint that allows new users to register.
-
-    Expected request body (JSON):
-    - username: string
-    - email: string (must be unique)
-    - password: string
-    - repeated_password: string (must be equal to password)
-
-    Responses:
-    - 201 Created: user data (username, email, user_id)
-    - 400 Bad Request: validation errors
-    """
+    """Handle user registration."""
 
     permission_classes = [AllowAny]
 
     def post(self, request):
-        """
-        Handle POST requests to create a new user account.
-        """
+        """Validate data and create a new user."""
         serializer = RegistrationSerializer(data=request.data)
-
-        if serializer.is_valid():
-            saved_account = serializer.save()
-            data = {
-                "username": saved_account.username,
-                "email": saved_account.email,
-                "user_id": saved_account.pk,
-            }
-            return Response(data, status=status.HTTP_201_CREATED)
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save()
+        data = {"detail": "User created successfully!"}
+        return Response(data, status=status.HTTP_201_CREATED)
 
 
 class CookieTokenObtainPairView(TokenObtainPairView):
-    """
-    Custom TokenObtainPairView that sets the JWT tokens in HttpOnly cookies
-    and uses email + password for authentication.
-    """
+    """Issue JWT tokens, store them in cookies and return user data."""
 
-    serializer_class = CustomObjectSerializer
+    serializer_class = CustomTokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
-        """
-        Handle POST requests for user login using email and password.
-
-        Expected body:
-        - email
-        - password
-        """
-        # Use our custom serializer (email + password)
+        """Authenticate user by email and set JWT cookies."""
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
-        refresh = serializer.validated_data.get("refresh")
-        access = serializer.validated_data.get("access")
-
-        # Build a custom response without exposing the tokens
-        response = Response({"message": "Login successful"}, status=status.HTTP_200_OK)
-
-        # In der Kurs-Variante: secure=True + ggf. SSL-Verification in Postman
-        response.set_cookie(
-            key="access_token",
-            value=str(access),
-            httponly=True,
-            secure=True,
-            samesite="Lax",
+        refresh = serializer.validated_data["refresh"]
+        access = serializer.validated_data["access"]
+        user_data = serializer.validated_data["user"]
+        response = Response(
+            {"detail": "Login successfully!", "user": user_data},
+            status=status.HTTP_200_OK,
         )
-
-        response.set_cookie(
-            key="refresh_token",
-            value=str(refresh),
-            httponly=True,
-            secure=True,
-            samesite="Lax",
-        )
-
+        set_auth_cookies(response, str(access), str(refresh))
         return response
 
 
 class CookieRefreshView(TokenRefreshView):
-    """
-    Refresh view that reads the refresh token from a HttpOnly cookie
-    and issues a new access token, also stored as a HttpOnly cookie.
-    """
+    """Refresh the access token using the refresh cookie."""
 
     def post(self, request, *args, **kwargs):
-        refresh_token = request.COOKIES.get("refresh_token")
-
-        if refresh_token is None:
+        """Issue a new access token and update cookie."""
+        refresh = request.COOKIES.get("refresh_token")
+        if not refresh:
             return Response(
-                {"error": "Refresh token not found"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        serializer = self.get_serializer(data={"refresh": refresh_token})
-        try:
-            serializer.is_valid(raise_exception=True)
-        except Exception:
-            return Response(
-                {"error": "Refresh token invalid"},
+                {"detail": "Refresh token not found"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
-
-        access_token = serializer.validated_data.get("access")
+        serializer = self.get_serializer(data={"refresh": refresh})
+        serializer.is_valid(raise_exception=True)
+        access = serializer.validated_data["access"]
         response = Response(
-            {"message": "Access token refreshed successfully"},
+            {"detail": "Token refreshed", "access": str(access)},
             status=status.HTTP_200_OK,
         )
+        set_auth_cookies(response, str(access), refresh)
+        return response
 
-        response.set_cookie(
-            key="access_token",
-            value=str(access_token),
-            httponly=True,
-            secure=True,
-            samesite="Lax",
-        )
 
+class LogoutView(APIView):
+    """Log out the user and invalidate their tokens."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """Blacklist refresh token and clear auth cookies."""
+        refresh = request.COOKIES.get("refresh_token")
+        blacklist_refresh_cookie(refresh)
+        response = Response({"detail": LOGOUT_MESSAGE}, status=status.HTTP_200_OK)
+        clear_auth_cookies(response)
         return response

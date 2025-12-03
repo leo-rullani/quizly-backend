@@ -1,3 +1,5 @@
+"""Helpers for generating quiz data from transcripts using Gemini."""
+
 from __future__ import annotations
 
 import json
@@ -5,7 +7,6 @@ import os
 from typing import Any, Dict
 
 from google import genai
-
 
 GEMINI_MODEL = "gemini-2.5-flash"
 
@@ -41,7 +42,8 @@ def get_gemini_client() -> genai.Client:
     """Create a Gemini client from environment API key."""
     api_key = os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY")
     if not api_key:
-        raise RuntimeError("GOOGLE_API_KEY or GEMINI_API_KEY is not set.")
+        msg = "GOOGLE_API_KEY or GEMINI_API_KEY is not set."
+        raise RuntimeError(msg)
     return genai.Client(api_key=api_key)
 
 
@@ -68,7 +70,8 @@ def parse_quiz_json(raw: str) -> Dict[str, Any]:
     try:
         return json.loads(cleaned)
     except json.JSONDecodeError as exc:
-        raise ValueError(f"Gemini returned non-JSON output: {exc}") from exc
+        msg = f"Gemini returned non-JSON output: {exc}"
+        raise ValueError(msg) from exc
 
 
 def generate_quiz_from_transcript(transcript: str) -> Dict[str, Any]:

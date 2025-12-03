@@ -1,45 +1,57 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import AllowAny
+"""API views for creating and managing quizzes."""
 
-from quiz_app.utils.youtube import download_youtube_audio
-from quiz_app.utils.transcription import transcribe_audio
-from quiz_app.utils.gemini_client import generate_quiz_from_transcript
-
+from rest_framework import generics, status
 from rest_framework.parsers import JSONParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from quiz_app.models import Quiz
+from quiz_app.utils.quiz_pipeline import create_quiz_from_youtube_url
+
 from .parsers import PlainTextJSONParser
+from .serializers import CreateQuizSerializer, QuizSerializer
+
 
 class CreateQuizView(APIView):
-    """Handle quiz creation from a YouTube URL."""
-    permission_classes = [AllowAny]
+    """Create a quiz from a YouTube URL."""
+
+    permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser, PlainTextJSONParser]
 
     def post(self, request):
-        """
-        Download audio, transcribe it and return meta data.
-        """
-        url = request.data.get("url")
-        if not url:
-            return Response(
-                {"detail": "URL is required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
+        """Validate input and trigger quiz creation."""
+        serializer = CreateQuizSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        url = serializer.validated_data["url"]
         try:
-            audio_path, canonical_url = download_youtube_audio(url)
-            transcript = transcribe_audio(str(audio_path))
-            quiz = generate_quiz_from_transcript(transcript)
-        except ValueError:
-            return Response(
-                {"detail": "Invalid YouTube URL."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        data = {
-            "video_url": str(canonical_url),
-            "audio_file": str(audio_path),
-            "transcript": transcript,
-            "quiz": quiz,
-        }
+            quiz = create_quiz_from_youtube_url(url, request.user)
+        except ValueError as error:
+            detail = {"detail": str(error) or "Invalid YouTube URL."}
+            return Response(detail, status=status.HTTP_400_BAD_REQUEST)
+        data = QuizSerializer(quiz).data
         return Response(data, status=status.HTTP_201_CREATED)
+
+
+class QuizListView(generics.ListAPIView):
+    """List all quizzes for the authenticated user."""
+
+    serializer_class = QuizSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Return quizzes belonging to the current user."""
+        user = self.request.user
+        return Quiz.objects.filter(user=user).order_by("-created_at")
+
+
+class QuizDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """Retrieve, update or delete a single quiz."""
+
+    serializer_class = QuizSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Limit access to quizzes owned by the current user."""
+        user = self.request.user
+        return Quiz.objects.filter(user=user)

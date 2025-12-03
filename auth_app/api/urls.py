@@ -1,9 +1,17 @@
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+"""URL routes for authentication and token endpoints."""
+
 from django.urls import path
-from .views import RegistrationView, CookieTokenObtainPairView, CookieRefreshView
+
+from .views import (
+    CookieRefreshView,
+    CookieTokenObtainPairView,
+    LogoutView,
+    RegistrationView,
+)
 
 urlpatterns = [
-    path("registration/", RegistrationView.as_view(), name="api-registration"),
-    path("token/", CookieTokenObtainPairView.as_view(), name="token_obtain_pair"),
-    path("token/refresh/", CookieRefreshView.as_view(), name="token_refresh"),
+    path("register/", RegistrationView.as_view(), name="api-register"),
+    path("login/", CookieTokenObtainPairView.as_view(), name="api-login"),
+    path("logout/", LogoutView.as_view(), name="api-logout"),
+    path("token/refresh/", CookieRefreshView.as_view(), name="token-refresh"),
 ]
