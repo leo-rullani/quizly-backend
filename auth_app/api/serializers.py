@@ -10,23 +10,23 @@ User = get_user_model()
 class RegistrationSerializer(serializers.ModelSerializer):
     """Serializer used for user registration."""
 
-    repeated_password = serializers.CharField(write_only=True)
+    confirmed_password = serializers.CharField(write_only=True)
 
     class Meta:
         model = User
-        fields = ["username", "email", "password", "repeated_password"]
+        fields = ["username", "email", "password", "confirmed_password"]
         extra_kwargs = {
             "password": {"write_only": True},
             "email": {"required": True},
         }
 
     def validate(self, attrs):
-        """Ensure password and repeated_password match."""
+        """Ensure password and confirmed_password match."""
         password = attrs.get("password")
-        repeated = attrs.get("repeated_password")
-        if password != repeated:
+        confirmed = attrs.get("confirmed_password")
+        if password != confirmed:
             msg = "Passwords do not match."
-            raise serializers.ValidationError({"repeated_password": msg})
+            raise serializers.ValidationError({"confirmed_password": msg})
         return attrs
 
     def validate_email(self, value):
@@ -37,7 +37,7 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         """Create and return a new user instance."""
-        validated_data.pop("repeated_password", None)
+        validated_data.pop("confirmed_password", None)
         user = User(
             username=validated_data["username"],
             email=validated_data["email"],
@@ -48,27 +48,33 @@ class RegistrationSerializer(serializers.ModelSerializer):
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """Token serializer that authenticates using email and password."""
+    """Token serializer that supports email or username login."""
 
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
-
-    def __init__(self, *args, **kwargs):
-        """Remove username field from the default serializer."""
-        super().__init__(*args, **kwargs)
-        self.fields.pop("username", None)
+    email = serializers.EmailField(required=False)
 
     def validate(self, attrs):
         """Validate user credentials and build token payload."""
-        email, password = attrs.get("email"), attrs.get("password")
-        if not email or not password:
-            raise serializers.ValidationError("Email and password are required.")
-        try:
-            user = User.objects.get(email=email)
-            if not user.check_password(password):
-                raise ValueError
-        except Exception:
+        username = attrs.get("username")
+        email = attrs.get("email")
+        password = attrs.get("password")
+        if not password or not (username or email):
+            msg = "Email/username and password are required."
+            raise serializers.ValidationError(msg)
+        user = self._get_user(email=email, username=username)
+        if not user or not user.check_password(password):
             raise serializers.ValidationError("Invalid email or password.")
         data = super().validate({"username": user.username, "password": password})
-        data["user"] = {"id": user.pk, "username": user.username, "email": user.email}
+        data["user"] = {
+            "id": user.pk,
+            "username": user.username,
+            "email": user.email,
+        }
         return data
+
+    def _get_user(self, *, email=None, username=None):
+        """Return a user instance for the given identity or None."""
+        lookup = {"email": email} if email else {"username": username}
+        try:
+            return User.objects.get(**lookup)
+        except User.DoesNotExist:
+            return None
