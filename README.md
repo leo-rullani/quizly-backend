@@ -1,6 +1,3 @@
-Ja, lass uns die README fürs Backend bauen.
-Hier ist ein kompletter Vorschlag für **`README.md`** für dein Django-Backend. Du kannst ihn 1:1 übernehmen und nur noch ein paar Stellen (Name, Mail, etc.) anpassen.
-
 ````markdown
 # Quizly – Backend (Django & Django REST Framework)
 
