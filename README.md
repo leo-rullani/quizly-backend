@@ -479,19 +479,3 @@ Für Produktion:
 * Sichere Konfiguration der Cookies (`Secure`, `SameSite`, Domain etc.)
 
 ---
-
-## Rechtliches
-
-* Die rechtlichen Informationen (Impressum & Datenschutzerklärung) sind in den Frontend-Seiten:
-
-  * `privacy.html`
-  * `legalnotice.html`
-* Bitte passe:
-
-  * Betreibername
-  * Adresse
-  * Kontakt (E-Mail, Telefon)
-  * ggf. länderspezifische Anforderungen
-    an deine realen Daten an.
-
----
