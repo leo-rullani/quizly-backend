@@ -1,6 +1,8 @@
 """API views for creating and managing quizzes."""
 
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, status
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import JSONParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -10,7 +12,11 @@ from quiz_app.models import Quiz
 from quiz_app.utils.quiz_pipeline import create_quiz_from_youtube_url
 
 from .parsers import PlainTextJSONParser
-from .serializers import CreateQuizSerializer, QuizSerializer
+from .serializers import (
+    CreateQuizSerializer,
+    QuizSerializer,
+    QuizWithTimestampsSerializer,
+)
 
 
 class CreateQuizView(APIView):
@@ -29,7 +35,7 @@ class CreateQuizView(APIView):
         except ValueError as error:
             detail = {"detail": str(error) or "Invalid YouTube URL."}
             return Response(detail, status=status.HTTP_400_BAD_REQUEST)
-        data = QuizSerializer(quiz).data
+        data = QuizWithTimestampsSerializer(quiz).data
         return Response(data, status=status.HTTP_201_CREATED)
 
 
@@ -51,7 +57,10 @@ class QuizDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = QuizSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        """Limit access to quizzes owned by the current user."""
-        user = self.request.user
-        return Quiz.objects.filter(user=user)
+    def get_object(self):
+        """Return quiz instance or raise 403/404 as specified."""
+        quiz = get_object_or_404(Quiz, pk=self.kwargs.get("pk"))
+        if quiz.user != self.request.user:
+            msg = "You do not have permission to access this quiz."
+            raise PermissionDenied(msg)
+        return quiz

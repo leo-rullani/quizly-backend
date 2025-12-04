@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.exceptions import InvalidToken
 
 
 class CookieJWTAuthentication(JWTAuthentication):
@@ -12,9 +14,20 @@ class CookieJWTAuthentication(JWTAuthentication):
         """Return user and token if a valid JWT is found."""
         header = self.get_header(request)
         if header is not None:
-            return super().authenticate(request)
+            try:
+                return super().authenticate(request)
+            except (InvalidToken, AuthenticationFailed):
+                # Treat invalid header tokens as anonymous
+                return None
+
         raw_token = request.COOKIES.get("access_token")
         if not raw_token:
             return None
-        validated_token = self.get_validated_token(raw_token)
+
+        try:
+            validated_token = self.get_validated_token(raw_token)
+        except InvalidToken:
+            # Expired or invalid cookie token → behave as unauthenticated
+            return None
+
         return self.get_user(validated_token), validated_token
