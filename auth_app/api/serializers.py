@@ -2,6 +2,7 @@
 
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 User = get_user_model()
@@ -62,13 +63,9 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             raise serializers.ValidationError(msg)
         user = self._get_user(email=email, username=username)
         if not user or not user.check_password(password):
-            raise serializers.ValidationError("Invalid email or password.")
+            raise AuthenticationFailed("Invalid email or password.")
         data = super().validate({"username": user.username, "password": password})
-        data["user"] = {
-            "id": user.pk,
-            "username": user.username,
-            "email": user.email,
-        }
+        data["user"] = {"id": user.pk, "username": user.username, "email": user.email}
         return data
 
     def _get_user(self, *, email=None, username=None):
