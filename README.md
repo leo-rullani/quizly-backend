@@ -1,3 +1,5 @@
+Hier ist deine **vollständig angepasste README** (inkl. eigener Repo‑URL, klarer .env‑Erklärung und .env.template‑Flow), einfach so in `README.md` übernehmen:
+
 ````markdown
 # Quizly – Backend (Django & Django REST Framework)
 
@@ -8,7 +10,7 @@ Das Backend stellt eine REST‑API zur Verfügung, die:
 - YouTube‑Videos per **yt-dlp** + **FFmpeg** in Audio konvertiert
 - Audio mit **Whisper** transkribiert
 - Aus dem Transkript mit **Gemini Flash** ein Quiz mit 10 Fragen erzeugt
-- Quizzes speichert, auflistet, anzeigt, updatet und löscht
+- Quizzes speichert, auflistet, anzeigt, aktualisiert (PATCH) und löscht
 
 Dieses Repository enthält **nur das Backend**. Das Frontend wird separat bereitgestellt und greift auf diese API zu.
 
@@ -20,7 +22,7 @@ Dieses Repository enthält **nur das Backend**. Das Frontend wird separat bereit
 2. [Features / User Stories](#features--user-stories)  
 3. [Voraussetzungen](#voraussetzungen)  
 4. [Installation & Setup](#installation--setup)  
-5. [Umgebungsvariablen](#umgebungsvariablen)  
+5. [Umgebungsvariablen & .env.template](#umgebungsvariablen--envtemplate)  
 6. [Datenmodell](#datenmodell)  
 7. [API-Übersicht](#api-übersicht)  
 8. [Authentifizierung & Cookies](#authentifizierung--cookies)  
@@ -36,7 +38,7 @@ Dieses Repository enthält **nur das Backend**. Das Frontend wird separat bereit
 - **Programmiersprache:** Python 3.12  
 - **Web-Framework:** Django 5.x  
 - **API:** Django REST Framework  
-- **Auth:** djangorestframework-simplejwt (JWT in HttpOnly-Cookies)  
+- **Auth:** djangorestframework-simplejwt (JWT in HttpOnly-Cookies, eigene `CookieJWTAuthentication`)  
 - **Datenbank:** SQLite (für Entwicklung; kann leicht gegen PostgreSQL o. Ä. getauscht werden)  
 - **YouTube Download:** yt-dlp  
 - **Audio/Transcoding:** FFmpeg (Systemabhängige Installation, global verfügbar)  
@@ -49,28 +51,35 @@ Dieses Repository enthält **nur das Backend**. Das Frontend wird separat bereit
 
 Diese Implementierung deckt die in der Aufgabenstellung beschriebenen User Stories ab:
 
-- **User Story 1 – Registrierung:**  
-  - API-Endpoint `/api/register/`  
-  - Validiert E-Mail, Passwort & Passwortbestätigung, speichert User
+- **User Story 1 – Registrierung**  
+  - API-Endpoint: `POST /api/register/`  
+  - Validiert E-Mail, Passwort & Passwortbestätigung, speichert User  
+  - Fehlermeldung bei z. B. bereits verwendeter E-Mail
 
-- **User Story 2 – Login:**  
-  - API-Endpoint `/api/login/`  
+- **User Story 2 – Login**  
+  - API-Endpoint: `POST /api/login/`  
   - Validiert User, erstellt Access- & Refresh-Token und setzt diese als **HttpOnly Cookies**
 
-- **User Story 3 – Logout:**  
-  - API-Endpoint `/api/logout/`  
-  - Löscht/invalidiert Tokens und entfernt Cookies
+- **User Story 3 – Logout**  
+  - API-Endpoint: `POST /api/logout/`  
+  - Löscht/invalidiert Tokens und entfernt Cookies (Token-Blacklist)
 
-- **User Story 4 – Neues Quiz generieren:**  
-  - API-Endpoint `/api/createQuiz/`  
+- **User Story 4 – Neues Quiz generieren**  
+  - API-Endpoint: `POST /api/createQuiz/`  
   - Nimmt YouTube-URL entgegen, verarbeitet Audio & Transkript, erzeugt 10‑Fragen‑Quiz mit 4 Antwortoptionen
 
-- **User Story 5–9 – Quizverwaltung & Spielen:**  
-  - API-Endpoints `/api/quizzes/` & `/api/quizzes/{id}/`  
-  - Auflisten, Detailansicht, Aktualisieren (PATCH), Löschen  
+- **User Story 5–9 – Quizverwaltung & Spielen**  
+  - API-Endpoints:  
+    - `GET /api/quizzes/`  
+    - `GET /api/quizzes/{id}/`  
+    - `PATCH /api/quizzes/{id}/`  
+    - `DELETE /api/quizzes/{id}/`  
+  - Auflisten, Detailansicht, Aktualisieren (z. B. Titel/Beschreibung), Löschen  
+  - Berechtigungen: Nutzer sieht und bearbeitet nur **eigene** Quizzes (403 für fremde Quizzes)
 
-- **User Story 10 – Rechtliches:**  
-  - Frontend-Seiten `privacy.html` & `legalnotice.html` mit Datenschutzhinweisen und Impressum (vom Frontend genutzt)
+- **User Story 10 – Rechtliches**  
+  - Im **Frontend** existieren die Seiten `privacy.html` & `legalnotice.html`  
+  - Enthalten Datenschutzerklärung & Impressum (Betreiber: Leugzim Rullani)
 
 ---
 
@@ -79,33 +88,35 @@ Diese Implementierung deckt die in der Aufgabenstellung beschriebenen User Stori
 Stelle sicher, dass folgende Tools installiert sind:
 
 - **Python 3.12+**
-- **FFmpeg** global installiert  
-  Beispiele:
+- **Git** (zum Klonen des Repositories)
+- **FFmpeg** global installiert
 
-  ```bash
-  # macOS (Homebrew)
-  brew install ffmpeg
+Beispiele FFmpeg:
 
-  # Ubuntu / Debian
-  sudo apt-get update
-  sudo apt-get install ffmpeg
+```bash
+# macOS (Homebrew)
+brew install ffmpeg
 
-  # Windows (Chocolatey)
-  choco install ffmpeg
+# Ubuntu / Debian
+sudo apt-get update
+sudo apt-get install ffmpeg
+
+# Windows (Chocolatey)
+choco install ffmpeg
 ````
 
-* **Git** für das Klonen des Repos
-
-Alle Python-Abhängigkeiten werden später via `pip` installiert.
+Alle Python-Abhängigkeiten werden später via `pip` über `requirements.txt` installiert.
 
 ---
 
 ## Installation & Setup
 
+Die folgenden Schritte sind so beschrieben, dass jemand das Projekt **von Null** aus deinem GitHub-Repository starten kann.
+
 ### 1. Repository klonen
 
 ```bash
-git clone <DEIN-REPOSITORY-URL> quizly-backend
+git clone https://github.com/leo-rullani/quizly-backend.git
 cd quizly-backend
 ```
 
@@ -129,21 +140,19 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-> Stelle sicher, dass `djangorestframework`, `djangorestframework-simplejwt`, `yt-dlp`, `whisper`, `google-genai` etc. in deiner `requirements.txt` enthalten sind.
+> Alle benötigten Pakete (z. B. `Django`, `djangorestframework`, `djangorestframework-simplejwt`, `python-dotenv`, `yt-dlp`, `whisper`, `google-genai`, `pytest`, `coverage`) sind in `requirements.txt` enthalten.
 
-### 4. Umgebungsvariablen setzen
+### 4. `.env` aus Template erzeugen
 
-Siehe [Umgebungsvariablen](#umgebungsvariablen).
-Für die Entwicklung reicht es oft, die Variablen im Terminal zu exportieren:
+Im Projektroot liegt eine Datei **`.env.template`**.
+Diese Datei enthält Beispielwerte für alle benötigten Umgebungsvariablen.
 
 ```bash
-# Beispiel (UNBEDINGT eigenen Secret Key & API Key verwenden!)
-export SECRET_KEY="dein_django_secret_key"
-export GOOGLE_API_KEY="dein_gemini_api_key"
-export DJANGO_DEBUG="1"
+# im Projektroot:
+cp .env.template .env
 ```
 
-(Unter Windows entsprechend `set` oder Nutzung einer `.env` / Powershell-Profile.)
+Anschließend die Datei `.env` öffnen und anpassen (siehe [Umgebungsvariablen & .env.template](#umgebungsvariablen--envtemplate)).
 
 ### 5. Datenbank vorbereiten
 
@@ -163,25 +172,72 @@ Der Server läuft dann unter:
 http://127.0.0.1:8000/
 ```
 
-Das Frontend greift typischerweise über `http://127.0.0.1:8000/api/...` auf die API zu.
+Das (bereitgestellte) Frontend greift typischerweise über `http://127.0.0.1:8000/api/...` auf die API zu.
 
 ---
 
-## Umgebungsvariablen
+## Umgebungsvariablen & .env.template
 
-Mindestens folgende Variablen solltest du setzen:
+Die Konfiguration erfolgt über eine `.env`‑Datei im Projektroot.
+`core/settings.py` lädt diese Datei mit **python‑dotenv** automatisch:
 
-* `SECRET_KEY`
+* Datei im Repo: `.env.template`
+* Datei **lokal**: `.env` (wird **nicht** committed)
 
-  * Django Secret Key (niemals committen!)
+### 1. `.env.template` → `.env`
+
+```bash
+cp .env.template .env
+```
+
+### 2. Inhalt von `.env.template`
+
+Beispiel (im Repo):
+
+```env
+# Django Settings
+DJANGO_SECRET_KEY=change_me_to_a_random_long_string
+DJANGO_DEBUG=True
+DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
+
+# Google Gemini API
+GOOGLE_API_KEY=your_gemini_api_key_here
+
+# Optional future settings:
+# DATABASE_URL=sqlite:///db.sqlite3
+```
+
+### 3. `.env` für lokale Entwicklung anpassen
+
+In deiner **lokalen** `.env` sollten z. B. stehen:
+
+```env
+DJANGO_SECRET_KEY=irgendein_langer_geheimer_random_string
+DJANGO_DEBUG=True
+DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost
+
+GOOGLE_API_KEY=DEIN_ECHTER_GEMINI_API_KEY
+```
+
+* `DJANGO_SECRET_KEY`
+  Wird als `SECRET_KEY` in Django verwendet (in `settings.py` per `os.getenv` geladen).
 * `DJANGO_DEBUG`
-
-  * `"1"` oder `"0"` – steuert Debug-Modus
+  `"True"` oder `"False"`. Für lokale Entwicklung typischerweise `True`.
+* `DJANGO_ALLOWED_HOSTS`
+  Kommagetrennte Liste, z. B. `127.0.0.1,localhost`
 * `GOOGLE_API_KEY`
+  Dein Gemini‑API‑Key (wird in `quiz_app/utils/gemini_client.py` verwendet).
 
-  * API Key für die Gemini Flash API (wird vom Modul `google-genai` verwendet)
+Die Prüfer:innen können also:
 
-Optional kannst du weitere Einstellungen über Umgebungsvariablen vornehmen (Datenbank, Allowed Hosts etc.).
+```bash
+cp .env.template .env
+# dann .env öffnen und Werte eintragen
+python manage.py migrate
+python manage.py runserver
+```
+
+und das Projekt ohne zusätzliche Anpassungen starten.
 
 ---
 
@@ -192,7 +248,7 @@ Optional kannst du weitere Einstellungen über Umgebungsvariablen vornehmen (Dat
 * `user` – ForeignKey zum User (Owner des Quiz)
 * `title` – Titel des Quizzes
 * `description` – kurze Beschreibung
-* `video_url` – YouTube-URL, die für das Quiz verwendet wurde
+* `video_url` – YouTube‑URL, die für das Quiz verwendet wurde
 * `created_at` / `updated_at` – Zeitstempel
 
 ### `Question`
@@ -332,7 +388,7 @@ Erstellt ein neues Quiz aus einer YouTube-URL.
 
 Gibt alle Quizzes des aktuell eingeloggten Benutzers zurück.
 
-**Response 200**
+**Response 200** (Beispiel)
 
 ```json
 [
@@ -361,6 +417,8 @@ Gibt alle Quizzes des aktuell eingeloggten Benutzers zurück.
 
 Gibt ein spezifisches Quiz (nur, wenn es dem eingeloggten User gehört) zurück.
 
+---
+
 #### `PATCH /api/quizzes/{id}/`
 
 Partielle Aktualisierung eines Quizzes (z. B. Titel/Description).
@@ -373,24 +431,28 @@ Beispiel:
 }
 ```
 
+---
+
 #### `DELETE /api/quizzes/{id}/`
 
 Löscht ein Quiz inkl. aller zugehörigen Fragen.
 
-**Response 204**
-
-Kein Body.
+**Response 204** – Kein Body.
 
 ---
 
 ## Authentifizierung & Cookies
 
-* Nach erfolgreichem Login werden zwei HttpOnly Cookies gesetzt:
+* Nach erfolgreichem Login werden zwei **HttpOnly Cookies** gesetzt:
 
   * `access_token` (kurze Lebensdauer)
   * `refresh_token` (längere Lebensdauer)
-* Die Frontend-Requests (z. B. `fetch`, axios, Postman mit „Send cookies“) nutzen diese Cookies automatisch für geschützte Endpunkte (`/api/createQuiz/`, `/api/quizzes/…`).
-* Das Backend verwendet `rest_framework_simplejwt.authentication.JWTAuthentication` als Default Auth-Backend.
+
+* Das Backend nutzt eine eigene Auth-Klasse
+  `auth_app.authentication.CookieJWTAuthentication`,
+  die auf **SimpleJWT** basiert und Tokens aus den HttpOnly‑Cookies liest.
+
+* Geschützte Endpunkte (`/api/createQuiz/`, `/api/quizzes/...`) erfordern eine gültige Authentifizierung; sonst gibt es `401 Unauthorized` oder `403 Forbidden`.
 
 ---
 
@@ -400,27 +462,27 @@ Die Funktionalität zum Erstellen eines Quizzes aus einer YouTube-URL läuft in 
 
 1. **YouTube-URL parsen**
 
-   * Extrahiere Video-ID
-   * Baue eine kanonische URL
+   * Extrahieren der Video-ID
+   * Erzeugen einer kanonischen URL
 
 2. **Audio herunterladen**
 
-   * yt-dlp lädt nur die Audio-Spur in ein temporäres Verzeichnis (z. B. `tmp/audio/`)
+   * yt-dlp lädt nur die Audio-Spur in ein temporäres Verzeichnis
 
 3. **Transkription**
 
-   * Whisper lädt ein (ggf. gecachtes) Model (z. B. `"tiny"`)
+   * Whisper lädt ein Model (z. B. `"tiny"`)
    * Das Audio-File wird transkribiert → reiner Text
 
-4. **Quiz-Generierung**
+4. **Quiz-Generierung via Gemini**
 
-   * Der Transkript-Text wird mit einem strikten Prompt an Gemini Flash gesendet
+   * Der Transkript-Text wird mit einem strikten Prompt an **Gemini Flash** gesendet
    * Gemini generiert:
 
      * Titel
      * Beschreibung (max. 150 Zeichen)
      * exakt 10 Fragen mit jeweils 4 Antwortoptionen und einer richtigen Antwort
-   * Das Ergebnis wird geparst, als `Quiz` + 10 `Question` Objekte in der Datenbank gespeichert und an den Client zurückgegeben.
+   * Das Ergebnis wird in `Quiz` + `Question` Objekte umgewandelt, in der Datenbank gespeichert und an den Client zurückgegeben.
 
 ---
 
@@ -433,10 +495,10 @@ Die wichtigsten API-Funktionen werden über Django/DRF-Tests (`APITestCase`) abg
 * Registrierung (`/api/register/`)
 * Login/Logout/Token Refresh
 * `createQuiz` Endpunkt
-* Zugriff auf eigene / fremde Quizzes (200 / 401 / 403 / 404)
-* PATCH und DELETE Szenarien
+* Zugriff auf eigene / fremde Quizzes (Status 200 / 401 / 403 / 404)
+* PATCH- und DELETE-Szenarien
 
-Ausführen der Tests:
+Ausführen:
 
 ```bash
 python manage.py test
@@ -444,7 +506,7 @@ python manage.py test
 
 ### Pytest & Coverage
 
-Um mindestens **80 % Test Coverage** sicherzustellen, kannst du zusätzlich `pytest` und `coverage.py` verwenden:
+Zusätzlich sind `pytest` und `coverage.py` integriert.
 
 ```bash
 # Tests mit pytest ausführen
@@ -459,7 +521,7 @@ coverage html
 # → öffne htmlcov/index.html im Browser
 ```
 
-Stelle sicher, dass `pytest` und `coverage` in deiner `requirements-dev.txt` oder `requirements.txt` enthalten sind.
+Die aktuelle Testabdeckung liegt bei **> 80 %** (siehe `coverage report -m`).
 
 ---
 
@@ -467,12 +529,28 @@ Stelle sicher, dass `pytest` und `coverage` in deiner `requirements-dev.txt` ode
 
 Der integrierte Django-Server (`runserver`) ist **nur für Entwicklung** gedacht.
 
-Für Produktion:
+Für Produktion wird empfohlen:
 
-* WSGI/ASGI-Server verwenden (z. B. gunicorn, uvicorn + daphne)
-* DEBUG deaktivieren
+* WSGI/ASGI-Server verwenden (z. B. gunicorn, uvicorn/daphne)
+* `DJANGO_DEBUG=False` setzen
 * Sichere Datenbank (z. B. PostgreSQL)
-* HTTPS erzwingen
-* Sichere Konfiguration der Cookies (`Secure`, `SameSite`, Domain etc.)
+* HTTPS (TLS) verwenden
+* Sichere Cookie-Konfiguration (`Secure`, `SameSite`, Domain etc.)
+* Eigene `ALLOWED_HOSTS` per `DJANGO_ALLOWED_HOSTS` setzen
 
 ---
+
+## Rechtliches
+
+* Betreiber der Anwendung (Frontend/Impressum):
+  **Leugzim Rullani**
+  Untere Farnbühlstrasse 3
+  5610 Wohlen
+  E-Mail: `leugzimrullani@outlook.com`
+
+* Detaillierte rechtliche Informationen (Datenschutzerklärung & Impressum) befinden sich im **Frontend** auf:
+
+  * `privacy.html`
+  * `legalnotice.html`
+
+```

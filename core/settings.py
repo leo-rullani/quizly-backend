@@ -2,17 +2,34 @@
 
 from datetime import timedelta
 from pathlib import Path
+import os
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load environment variables from .env if present
+env_path = BASE_DIR / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-*y=_#e8qu&w54_*xc&&l&5&)h98=8l+2olzu$=^49^994cl1c5"
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-*y=_#e8qu&w54_*xc&&l&5&)h98=8l+2olzu$=^49^994cl1c5",
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DJANGO_DEBUG", "True") == "True"
 
-ALLOWED_HOSTS: list[str] = []
+# Hosts: aus .env lesen, sonst wie bisher leer lassen (für lokale Dev ok)
+allowed_hosts_env = os.getenv("DJANGO_ALLOWED_HOSTS", "")
+if allowed_hosts_env:
+    ALLOWED_HOSTS: list[str] = [
+        host.strip() for host in allowed_hosts_env.split(",") if host.strip()
+    ]
+else:
+    ALLOWED_HOSTS: list[str] = []
 
 
 # Application definition
@@ -29,10 +46,10 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
+    "corsheaders",
     # Local apps
     "auth_app",
     "quiz_app",
-    "corsheaders",
 ]
 
 MIDDLEWARE = [
