@@ -1,23 +1,37 @@
-cat > .gitignore << 'EOF'
 # Python
 __pycache__/
 *.py[cod]
 *.pyo
+*.pyd
+*.so
 
-# venv
+# Virtual environments
 env/
 .venv/
 
-# Django
+# Django / DB
 db.sqlite3
 *.sqlite3
 
-# VS Code
-.vscode/
-
-# Sonstiges
-*.log
-EOF
-.env
+# Environment files
 .env
 .env.*
+!.env.template
+
+# Test & Coverage
+.coverage
+htmlcov/
+
+# Temp & generated files
+tmp/
+tmp/*
+cookies.txt
+cookies_a.txt
+cookies_patch.txt
+
+# Logs
+*.log
+
+# Editor / IDE
+.vscode/
+.idea/
