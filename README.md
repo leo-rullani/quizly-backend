@@ -1,5 +1,3 @@
-Hier ist deine **vollständig angepasste README** (inkl. eigener Repo‑URL, klarer .env‑Erklärung und .env.template‑Flow), einfach so in `README.md` übernehmen:
-
 ````markdown
 # Quizly – Backend (Django & Django REST Framework)
 
