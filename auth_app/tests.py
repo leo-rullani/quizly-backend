@@ -1,4 +1,4 @@
-"""API tests for authentication-related endpoints."""
+"""API tests for authentication endpoints."""
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -42,7 +42,7 @@ class BaseAuthApiTests(APITestCase):
     """Base setup and helpers for auth API tests."""
 
     def setUp(self):
-        """Create a default test user."""
+        """Create a user used across authentication tests."""
         self.password = "testpassword123"
         self.user = User.objects.create_user(
             username="testuser",
